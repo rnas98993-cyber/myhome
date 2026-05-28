@@ -13,6 +13,9 @@
         .off { background-color: #e74c3c; box-shadow: 0 4px #c0392b; }
         .btn:active { transform: translateY(4px); box-shadow: none; }
     </style>
+    <!-- Memuat Script Firebase Core & Realtime Database via CDN Resmi -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -27,25 +30,30 @@
     </div>
 
     <script>
-        // Link asli milikmu + akhiran .json (Wajib untuk metode REST API tanpa API Key)
-        const dbURL = "https://smarthomeq-2f7e3-default-rtdb.asia-southeast1.firebasedatabase.app/";
-        let currentStatus = {};
+        // Menggunakan 100% URL Database milikmu tanpa embel-embel lain
+        const firebaseConfig = {
+            databaseURL: "https://smarthomeq-2f7e3-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
 
-        function AmbilData() {
-            fetch(dbURL)
-            .then(res => {
-                if(!res.ok) throw new Error('Akses Cloud Ditolak');
-                return res.json();
-            })
-            .then(data => {
+        // Inisialisasi koneksi aman Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        let currentStatus = { "relay1": 0, "relay2": 0, "relay3": 0, "relay4": 0 };
+
+        // Mendengarkan perubahan data secara Real-Time langsung dari Cloud
+        database.ref('/').on('value', (snapshot) => {
+            const data = snapshot.val();
+            
+            // Mengubah status koneksi di web menjadi HIJAU jika berhasil terhubung
+            document.getElementById("status").innerText = "Terhubung ke Cloud (Aktif)";
+            document.getElementById("status").style.color = "green";
+
+            if (data) {
                 currentStatus = data;
-                document.getElementById("status").innerText = "Terhubung ke Cloud (Aktif)";
-                document.getElementById("status").style.color = "green";
-                
                 for (let i = 1; i <= 4; i++) {
                     let key = "relay" + i;
                     let btn = document.getElementById("r" + i);
-                    let val = (data && data[key] !== undefined) ? data[key] : 0;
+                    let val = data[key] !== undefined ? data[key] : 0;
                     
                     if (val == 1) {
                         btn.innerText = "RELAY " + i + ": ON";
@@ -55,31 +63,20 @@
                         btn.className = "btn off";
                     }
                 }
-            })
-            .catch(err => {
-                document.getElementById("status").innerText = "Error Terputus (Cek Internet/Rules)";
-                document.getElementById("status").style.color = "red";
-                console.error(err);
-            });
-        }
+            }
+        }, (error) => {
+            document.getElementById("status").innerText = "Error Terputus (Rules Firebase Diblokir)";
+            document.getElementById("status").style.color = "red";
+            console.error(error);
+        });
 
+        // Fungsi mengubah status saklar secara instan saat tombol diklik
         function toggleRelay(relayName) {
             let nilaiBaru = currentStatus[relayName] == 1 ? 0 : 1;
             let updateData = {};
             updateData[relayName] = nilaiBaru;
-
-            fetch(dbURL, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updateData)
-            })
-            .then(() => AmbilData())
-            .catch(err => console.error("Gagal update:", err));
+            database.ref('/').update(updateData);
         }
-
-        // Ambil data secara berkala setiap 1.5 detik
-        setInterval(AmbilData, 1500);
-        AmbilData();
     </script>
 </body>
 </html>
