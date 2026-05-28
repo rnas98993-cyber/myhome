@@ -13,6 +13,9 @@
         .off { background-color: #e74c3c; box-shadow: 0 4px #c0392b; }
         .btn:active { transform: translateY(4px); box-shadow: none; }
     </style>
+    <!-- Memuat Library Firebase SDK Resmi -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -27,23 +30,20 @@
     </div>
 
     <script>
-        // URL asli database Firebase Anda (Sudah diperbaiki dengan format baku yang benar)
-        const dbURL = "https://firebasedatabase.app";
-        let currentStatus = {};
+        // Konfigurasi Menggunakan URL Database Asli Milik Anda
+        const firebaseConfig = {
+            databaseURL: "https://smarthomeq-2f7e3-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        
+        // Inisialisasi Firebase ke Website
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        let currentStatus = { "relay1": 0, "relay2": 0, "relay3": 0, "relay4": 0 };
 
-        function AmbilData() {
-            fetch(dbURL)
-            .then(res => {
-                if(!res.ok) throw new Error('Akses Ditolak');
-                return res.json();
-            })
-            .then(data => {
-                if(!data || typeof data !== 'object') {
-                    currentStatus = { "relay1": 0, "relay2": 0, "relay3": 0, "relay4": 0 };
-                    ResetDatabaseAwal();
-                    return;
-                }
-                
+        // Sinkronisasi data Real-Time Otomatis
+        database.ref('/').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
                 currentStatus = data;
                 document.getElementById("status").innerText = "Terhubung ke Cloud (Aktif)";
                 document.getElementById("status").style.color = "green";
@@ -61,38 +61,19 @@
                         btn.className = "btn off";
                     }
                 }
-            })
-            .catch(err => {
-                document.getElementById("status").innerText = "Error Terputus (Periksa Koneksi Internet)";
-                document.getElementById("status").style.color = "red";
-                console.error(err);
-            });
-        }
+            }
+        }, (error) => {
+            document.getElementById("status").innerText = "Error Terputus (Akses Ditolak)";
+            document.getElementById("status").style.color = "red";
+        });
 
+        // Fungsi mengubah status data saat tombol diklik
         function toggleRelay(relayName) {
             let nilaiBaru = currentStatus[relayName] == 1 ? 0 : 1;
             let updateData = {};
             updateData[relayName] = nilaiBaru;
-
-            fetch(dbURL, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updateData)
-            })
-            .then(() => AmbilData())
-            .catch(err => console.error("Gagal update:", err));
+            database.ref('/').update(updateData);
         }
-
-        function ResetDatabaseAwal() {
-            fetch(dbURL, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(currentStatus)
-            }).then(() => AmbilData());
-        }
-
-        setInterval(AmbilData, 1500);
-        AmbilData();
     </script>
 </body>
 </html>
